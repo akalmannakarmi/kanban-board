@@ -20,6 +20,8 @@ services:
       - db
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
 
   frontend:
     build: ./frontend
@@ -28,6 +30,9 @@ services:
       - .env
     ports:
       - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
 
 volumes:
   postgres_data:
