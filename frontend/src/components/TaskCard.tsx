@@ -1,20 +1,30 @@
-import type { Task } from "../types/task.ts";
+import type { Task } from "../types/task";
 
-export function TaskCard({ task }: { task: Task }) {
+interface Props {
+  task: Task;
+  onDragStart: () => void;
+  onDrop: () => void;
+}
+
+export function TaskCard({ task, onDragStart, onDrop }: Props) {
   return (
     <div
-      style={{
-        padding: "8px",
-        marginBottom: "8px",
-        background: "#fff",
-        borderRadius: "4px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-      }}
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={onDrop}
+      className="
+        bg-white rounded-lg px-3 py-2 shadow-sm
+        cursor-grab active:cursor-grabbing
+        border border-transparent
+        hover:border-orange-400
+        hover:shadow-md
+        transition
+      "
     >
-      <strong>{task.title}</strong>
-      {task.description && (
-        <p style={{ fontSize: "12px" }}>{task.description}</p>
-      )}
+      <p className="text-sm font-medium text-slate-800">
+        {task.title}
+      </p>
     </div>
   );
 }
