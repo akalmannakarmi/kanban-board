@@ -26,14 +26,14 @@ def list_tasks(db: Session = Depends(get_db)):
     tasks = db.execute(stmt).scalars().all()
     return tasks
 
-@router.get("/{task_id}", response_model=TaskRead)
+@router.get("/{task_id}/", response_model=TaskRead)
 def get_task(task_id: UUID, db: Session = Depends(get_db)):
     task = db.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     return task
 
-@router.patch("/{task_id}", response_model=TaskRead)
+@router.patch("/{task_id}/", response_model=TaskRead)
 def update_task(
     task_id: UUID,
     task_in: TaskUpdate,
@@ -51,7 +51,7 @@ def update_task(
     db.refresh(task)
     return task
 
-@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{task_id}/", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(task_id: UUID, db: Session = Depends(get_db)):
     task = db.get(Task, task_id)
     if not task:
