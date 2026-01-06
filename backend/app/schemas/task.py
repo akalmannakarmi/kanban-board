@@ -4,9 +4,10 @@ from pydantic import BaseModel, Field
 
 
 class TaskBase(BaseModel):
+    id: UUID
     title: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
-    status: str = Field(..., pattern="^(todo|in_progress|done)$")
+    status: str = Field(..., pattern="^(todo|in_progress|in_review|done)$")
     position: int = 0
 
 
@@ -22,7 +23,6 @@ class TaskUpdate(BaseModel):
 
 
 class TaskRead(TaskBase):
-    id: UUID
     created_at: datetime
     updated_at: datetime
 
