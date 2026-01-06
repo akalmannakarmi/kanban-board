@@ -1,27 +1,35 @@
-import { useEffect, useState } from "react";
-import { nanoid } from "nanoid";
+import { useEffect, useMemo, useState } from "react";
 import type { Task, TaskStatus } from "../types/task";
-import { loadTasks, saveTasks } from "../utils/storage";
 import { COLUMNS } from "../types/kanban";
 import { Column } from "./Column";
 import { TaskEditor } from "./TaskEditor";
+import type { DataMode } from "../App";
 
-export function Board() {
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const stored = loadTasks();
-    return stored.length ? stored : [];
-  });
+import { LocalTaskRepository } from "../repositories/LocalTaskRepository";
+import { ApiTaskRepository } from "../repositories/ApiTaskRepository";
 
+const localRepo = new LocalTaskRepository();
+const apiRepo = new ApiTaskRepository();
+
+export function Board({ mode }: { mode: DataMode }) {
+  const repo = useMemo(
+    () => (mode === "local" ? localRepo : apiRepo),
+    [mode]
+  );
+
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
-  useEffect(() => saveTasks(tasks), [tasks]);
+  useEffect(() => {
+    repo.load().then(setTasks).catch(console.error);
+  }, [repo]);
 
   function openNewTask(status: TaskStatus) {
     const now = new Date().toISOString();
 
     setActiveTask({
-      id: nanoid(),
+      id: crypto.randomUUID(),
       title: "",
       description: "",
       status,
@@ -31,37 +39,130 @@ export function Board() {
     });
   }
 
-  function saveTask(task: Task) {
-    setTasks((prev) => {
-      const exists = prev.some((t) => t.id === task.id);
-      return exists
-        ? prev.map((t) => (t.id === task.id ? task : t))
-        : [...prev, task];
-    });
+  async function saveTask(task: Task) {
+    const exists = tasks.some((t) => t.id === task.id);
+
+    if (exists) {
+      await repo.update(task);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? task : t))
+      );
+    } else {
+      await repo.create(task);
+      setTasks((prev) => [...prev, task]);
+    }
   }
 
-  function deleteTask(id: string) {
+  async function deleteTask(id: string) {
+    await repo.delete(id);
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }
 
-  function moveTask(taskId: string, status: TaskStatus, index: number) {
-    setTasks((prev) => {
-      const task = prev.find((t) => t.id === taskId);
-      if (!task) return prev;
+  function computeNextTasks(
+    prev: Task[],
+    taskId: string,
+    newStatus: TaskStatus,
+    newIndex: number
+  ): Task[] {
+    const task = prev.find((t) => t.id === taskId);
+    if (!task) return prev;
 
-      const remaining = prev.filter((t) => t.id !== taskId);
-      const target = remaining.filter((t) => t.status === status);
+    const oldStatus = task.status;
 
-      target.splice(index, 0, { ...task, status });
+    // Remove task
+    const remaining = prev.filter((t) => t.id !== taskId);
 
-      const others = remaining.filter((t) => t.status !== status);
+    // Target column
+    const target = remaining
+      .filter((t) => t.status === newStatus)
+      .sort((a, b) => a.position - b.position);
 
-      return [...others, ...target].map((t, i) => ({
-        ...t,
-        position: i,
-        updated_at: new Date().toISOString(),
-      }));
-    });
+    const movedTask: Task = {
+      ...task,
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    };
+
+    target.splice(newIndex, 0, movedTask);
+
+    const updatedTarget = target.map((t, i) => ({
+      ...t,
+      position: i,
+    }));
+
+    // Source column (if different)
+    const updatedSource =
+      oldStatus === newStatus
+        ? []
+        : remaining
+            .filter((t) => t.status === oldStatus)
+            .sort((a, b) => a.position - b.position)
+            .map((t, i) => ({
+              ...t,
+              position: i,
+            }));
+
+    // Unaffected
+    const unaffected = remaining.filter(
+      (t) =>
+        t.status !== oldStatus &&
+        t.status !== newStatus
+    );
+
+    return [...unaffected, ...updatedSource, ...updatedTarget];
+  }
+
+  function hasTaskChanged(a: Task, b: Task): boolean {
+    return (
+      a.status !== b.status ||
+      a.position !== b.position ||
+      a.title !== b.title ||
+      a.description !== b.description ||
+      a.updated_at !== b.updated_at
+    );
+  }
+
+
+  async function moveTask(
+    taskId: string,
+    newStatus: TaskStatus,
+    newIndex: number
+  ) {
+    const prevTasks = tasks;
+    const nextTasks = computeNextTasks(
+      prevTasks,
+      taskId,
+      newStatus,
+      newIndex
+    );
+
+
+    // Find changed tasks
+    const changedTasks: Task[] = [];
+
+    for (const next of nextTasks) {
+      const prev = prevTasks.find((t) => t.id === next.id);
+      if (!prev) {
+        changedTasks.push(next);
+        continue;
+      }
+
+      if (hasTaskChanged(prev, next)) {
+        changedTasks.push(next);
+      }
+    }
+
+    // Optimistic UI update
+    setTasks(nextTasks);
+
+    // Persist changes
+    try {
+      for (const task of changedTasks) {
+        await repo.update(task);
+      }
+    } catch (err) {
+      console.error("❌ Failed to persist move", err);
+    }
   }
 
   return (
@@ -90,7 +191,11 @@ export function Board() {
         <TaskEditor
           task={activeTask}
           onSave={saveTask}
-          onDelete={tasks.some((t) => t.id === activeTask.id) ? deleteTask : undefined}
+          onDelete={
+            tasks.some((t) => t.id === activeTask.id)
+              ? deleteTask
+              : undefined
+          }
           onClose={() => setActiveTask(null)}
         />
       )}
