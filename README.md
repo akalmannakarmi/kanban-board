@@ -16,7 +16,6 @@ The focus is on **clean architecture, correctness, and clarity**, not over-engin
   - Done
 - Create, edit, delete tasks
 - Drag & drop between columns
-- Stable ordering within columns
 - Task metadata:
   - title, description
   - status, position
@@ -73,6 +72,3 @@ docker-compose up
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
-
-
-```
