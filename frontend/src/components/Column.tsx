@@ -28,10 +28,13 @@ interface Props {
   title: string;
   columnId: Task["status"];
   tasks: Task[];
+  onAdd: () => void;
+  onEdit: (task: Task) => void;
   draggedTaskId: string | null;
   setDraggedTaskId: (id: string | null) => void;
   moveTask: (taskId: string, status: Task["status"], index: number) => void;
 }
+
 
 export function Column({
   title,
@@ -40,6 +43,8 @@ export function Column({
   draggedTaskId,
   setDraggedTaskId,
   moveTask,
+  onAdd,
+  onEdit,
 }: Props) {
   const styles = COLUMN_STYLES[columnId];
 
@@ -56,20 +61,26 @@ export function Column({
     >
       <div className={`h-2 ${styles.accent}`} />
 
-      <h3 className="px-4 py-3 font-semibold text-slate-700">
+      <h3 className="px-4 py-3 font-semibold text-slate-700 flex justify-between">
         {title}
+        <button
+          onClick={onAdd}
+          className="text-sm text-slate-500 hover:text-orange-600"
+        >
+          + Add
+        </button>
       </h3>
 
-      <div className="flex-1 px-4 pb-4 flex flex-col gap-2">
+      <div className="flex-1 px-4 pb-4 flex flex-col gap-4">
         {tasks.map((task, index) => (
           <TaskCard
             key={task.id}
             task={task}
             onDragStart={() => setDraggedTaskId(task.id)}
             onDrop={() =>
-              draggedTaskId &&
-              moveTask(draggedTaskId, columnId, index)
+              draggedTaskId && moveTask(draggedTaskId, columnId, index)
             }
+            onEdit={onEdit}
           />
         ))}
       </div>
