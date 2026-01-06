@@ -7,13 +7,6 @@ interface Props {
   onEdit: (task: Task) => void;
 }
 
-function formatShort(date: string) {
-  return new Date(date).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
-}
-
 export function TaskCard({ task, onDragStart, onDrop, onEdit }: Props) {
   return (
     <div
